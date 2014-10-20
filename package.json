@@ -1,6 +1,0 @@
-"dependencies": {
-    "bower": "0.3.12"
-},
-"scripts": {
-    "postinstall": "./node_modules/bower/bin/bower install"
-}
