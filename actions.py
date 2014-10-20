@@ -1,92 +1,92 @@
 import json
+import base64
+import pickle
+from sklearn.externals import joblib
 from datastore import Datastore
-from sayuri_model import Action
 import recognizers
+from sayuri_framework import Action
+from model import Conference
 
 
-class GreetingAction(Action):
+class TimeManagementAction(Action):
     def __init__(self):
         super().__init__(recognizers.TimeRecognizer)
 
-    def execute(self, data):
-        timezone = data[recognizers.TimeRecognizer.key()]
-        # pre_value = Datastore().get_from_list(self.key())
-        pre_value = ""
-        pre_params = self.__split_value(pre_value)
-        message = ""
+    def execute(self, data, observer):
+        phase = data[recognizers.TimeRecognizer.key()]
+        past_phase = observer.datastore.get_single(self.key() + ":phase")
+        comment = ""
+        if phase != past_phase:
+            observer.datastore.store_to_list(self.key() + ":phase", phase)
+            if phase == recognizers.TimeRecognizer.PHASE_START:
+                comment = "conference is now begin! confirm agenda and today's aims."
+            elif phase == recognizers.TimeRecognizer.PHASE_CLOSING:
+                comment = "conference will close after 10 minutes. please wrap-up ."
+            elif phase == recognizers.TimeRecognizer.PHASE_LIMIT:
+                comment = "conference will close after 3 minutes."
+            elif phase == recognizers.TimeRecognizer.PHASE_END:
+                comment = "conference expired now. please exit quickly for next."
 
-        if len(pre_params) == 0 or (len(pre_params) > 0 and timezone != pre_params["timezone"]):
-            if timezone == "morning":
-                message = "Good morning"
-            elif timezone == "daytime":
-                message = "Good afternoon"
-            elif timezone == "night":
-                message = "Good night"
+        return comment
 
-        if message:
-            Datastore().store_to_list(self.key(), "{0}:{1}".format(timezone, self._get_timestamp()))
-            return message
+
+class FaceAction(Action):
+    def __init__(self):
+        super().__init__(recognizers.FaceRecognizer)
+        self.data_range = 10
+
+    @classmethod
+    def store_model(cls, path):
+        model = joblib.load(path)
+        serialized = pickle.dumps(model)
+        serialized = base64.b64encode(serialized)
+        Datastore().store(cls.key() + ":model", serialized)
+
+    @classmethod
+    def load_model(cls):
+        serialized = Datastore().get(cls.key() + ":model")
+        serialized = base64.b64decode(serialized)
+        return pickle.loads(serialized)
+
+    def execute(self, data, observer):
+        # check recognized image
+        response = ""
+        if recognizers.FaceRecognizer.key() in data:
+            detecteds = [json.loads(j) for j in data[recognizers.FaceRecognizer.key()]]
+            model = self.load_model()
+            predictions = []
+            for d in detecteds:
+                param = self.get_parameters(d)
+                if param:
+                    predictions.append(model.predict(param))
+
+            if len(predictions) > 0:
+                good_rate = float(sum(predictions)) / len(predictions)
+                response = "{0}".format(good_rate)
+                Conference.update_rate(observer.conference_key, good_rate)
+
+        return response
+
+    def get_parameters(self, faces):
+        if faces and len(faces["face_detection"]) > 0:
+            pitches = []
+            smiles = []
+            for d in faces["face_detection"]:
+                if "pose" in d and "pitch" in d["pose"]:
+                    pitches.append(d["pose"]["pitch"])
+                if "smile" in d:
+                    smiles.append(d["smile"])
+
+            min_pitches = 0
+            max_smile = 0
+            if len(pitches) > 0:
+                min_pitches = min(pitches)
+
+            if len(smiles) > 0:
+                max_smile = max(smiles)
+
+            return min_pitches, max_smile
         else:
             return None
 
-    @classmethod
-    def __split_value(cls, value):
-        values = value.split(":")
-        if len(values) > 1:
-            return {"timezone": values[0], "timestamp": values[1]}
-        else:
-            return {}
 
-    @classmethod
-    def receive_feedback(cls, action_key, dict_data):
-        super().receive_feedback(action_key, dict_data)
-        return receive_face_feedback(dict_data)
-
-
-class MessageAction(Action):
-    def __init__(self):
-        super().__init__(recognizers.MessageRecognizer)
-
-    def execute(self, data):
-        return "Thank you for message"
-
-    @classmethod
-    def receive_feedback(cls, action_key, dict_data):
-        super().receive_feedback(action_key, dict_data)
-        return receive_face_feedback(dict_data)
-
-
-def receive_face_feedback(face_feedback):
-    response = {}
-
-    def value_to_dict(value):
-        result = {}
-        values = value.split(",")
-        for v in values:
-            kv = v.split(":")
-            if len(kv) > 1:
-                result.update({kv[0]: kv[1]})
-        return result
-
-    # check feedback
-    is_detected = True
-    if not face_feedback:
-        is_detected = False
-    elif len(face_feedback.face_detection) == 0:
-        is_detected = False
-
-    # analyze feedback
-    if is_detected:
-        recognized = face_feedback.face_detection[0]
-        who = value_to_dict(recognized.name)
-        emotion = recognized.emotion.fields()
-
-        if len(who) > 1 and len(emotion) > 1:
-            who_top = max(who, key=who.get)
-            emotion_top = max(emotion,  key=emotion.get)
-
-            #if emotion[emotion_top] >= 0.7:
-            if emotion[emotion_top] >= 0.1:
-                response = {"message": "{0} send {1} feedback.".format(who_top, emotion_top)}
-
-    return response

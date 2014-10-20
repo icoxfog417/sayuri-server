@@ -4,55 +4,60 @@ import secret_settings
 
 
 class Datastore(object):
-    redis_url = ""
-    instance = None
 
-    def __init__(self):
-        if not Datastore.instance:
-            Datastore.redis_url = os.getenv('REDISTOGO_URL', secret_settings.REDIS_URL)
-            Datastore.instance = redis.StrictRedis.from_url(self.redis_url, decode_responses=True)
+    def __init__(self, *args):
+        self.redis_url = os.getenv('REDISTOGO_URL', secret_settings.REDIS_URL)
+        self.connection = redis.StrictRedis.from_url(self.redis_url, decode_responses=True)
+        self.schema = list(args)  # schema is attached to every key
 
     @classmethod
-    def store(cls, key, value, nx=False):
+    def create(cls, *args):
+        return Datastore()
+
+    def __format_key(self, key):
+        return ":".join(self.schema + [key])
+
+    def store(self, key, value, nx=False):
+        k = self.__format_key(key)
         if type(value) == dict:
-            if not nx or (nx and cls.instance.exists(key)):
-                cls.instance.hmset(key, value)
+            if not nx or (nx and self.connection.exists(key)):
+                self.connection.hmset(k, value)
         else:
-            cls.instance.set(key, value, nx=nx)
+            self.connection.set(k, value, nx=nx)
 
-    @classmethod
-    def get(cls, key, field=None):
+    def get(self, key, field=None):
+        k = self.__format_key(key)
         if field:
-            return cls.instance.hget(key, field)
+            return self.connection.hget(k, field)
         else:
-            return cls.instance.get(key)
+            return self.connection.get(k)
 
-    @classmethod
-    def delete(cls, *key):
-        return cls.instance.delete(key)
+    def delete(self, *key):
+        ks = [self.__format_key(k) for k in key]
+        return self.connection.delete(ks)
 
-    @classmethod
-    def store_to_list(cls, list_name, *value):
-        cls.instance.lpush(list_name, *value)
+    def store_to_list(self, list_name, *value):
+        ln = self.__format_key(list_name)
+        self.connection.lpush(ln, *value)
 
-    @classmethod
-    def get_from_list(cls, list_name):
-        result = cls.instance.lrange(list_name, 0, 0)
+    def get_list(self, list_name, index=0):
+        ln = self.__format_key(list_name)
+        result = self.connection.lrange(ln, 0, index)
+        return result
+
+    def get_single(self, list_name):
+        result = self.get_list(list_name, 0)
         if result:
             return result[0]
         else:
             return ""
 
-    @classmethod
-    def get_range(cls, list_name, index):
-        return cls.instance.lrange(list_name, 0, index)
-
-    @classmethod
-    def trim_list(cls, list_name, length=-1):
+    def trim_list(self, list_name, length=-1):
+        ln = self.__format_key(list_name)
         if length == -1:
-            return cls.instance.delete(list_name)
+            return self.connection.delete(ln)
         else:
-            return cls.instance.ltrim(list_name, 0, length)
+            return self.connection.ltrim(ln, 0, length)
 
 
 class KeyValue(object):

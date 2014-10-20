@@ -1,0 +1,21 @@
+{
+  "name": "sayuri-server-lib",
+  "version": "0.0.0",
+  "homepage": "https://github.com/tech-sketch/sayuri-server",
+  "authors": [
+    "icoxfog417 <icoxfog417@yahoo.co.jp>"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bootstrap": "~3.2.0",
+    "knockout": "~3.2.0",
+    "Chart.js": "~0.2.0"
+  }
+}

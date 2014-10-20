@@ -4,7 +4,7 @@ from datetime import timedelta
 from threading import Timer
 import math
 import random
-import sayuri_model
+import sayuri_framework
 
 
 def scheduler(interval, callback):
@@ -15,7 +15,7 @@ def sender(message):
     print(message)
 
 
-class TestRecognizer(sayuri_model.Recognizer):
+class TestRecognizer(sayuri_framework.Recognizer):
 
     def __init__(self, validation_key=""):
         interval = timedelta(seconds=1)
@@ -28,7 +28,7 @@ class TestRecognizer(sayuri_model.Recognizer):
         return self.validation_key
 
 
-class TestAction(sayuri_model.Action):
+class TestAction(sayuri_framework.Action):
     def __init__(self):
         super().__init__(TestRecognizer)
         self.validation_key = str(random.random())
@@ -50,7 +50,7 @@ class TestRecognize(unittest.TestCase):
         self.assertEqual(math.floor(wait_time), recognizer.counter)
 
     def test_observer(self):
-        observer = sayuri_model.RecognitionObserver(scheduler, sender)
+        observer = sayuri_framework.RecognitionObserver(scheduler, sender)
         action = TestAction()
         recognizer = TestRecognizer(action.validation_key)
         observer.set_recognizer(recognizer)

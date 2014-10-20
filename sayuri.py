@@ -3,121 +3,215 @@ import os
 import uuid
 import json
 import logging
-import urllib.request
-import urllib.parse
+from datetime import datetime
 import tornado.escape
 import tornado.ioloop
 import tornado.web
 import tornado.httpserver
 import tornado.websocket
+import tornado.template
 import secret_settings
-import rekognition
-from sayuri_model import RecognitionObserver
+from datastore import Datastore
+from recognizers import SayuriRecognitionObserver
+from model import Conference
 import recognizers
+from actions import FaceAction
 import actions
 
 
 class Application(tornado.web.Application):
-    observer = None
+    observers = {}
 
-    def __init__(self, instance):
+    def __init__(self):
         handlers = [
-            (r"/", HomeHandler),
-            (r"/face", FaceHandler),
-            (r"/bot/listen", BotHandler),
+            (r"/", IndexHandler),
+            (r"/home", HomeHandler),
+            (r"/login", LoginHandler),
+            (r"/logout", LogoutHandler),
+            (r"/conference", ConferenceHandler),
+            (r"/conference/image", ImageHandler),
             (r"/sayurisocket", ClientSocketHandler),
         ]
-        # todo have to think about xsrf
         settings = dict(
+            login_url="/login",
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
             static_path=os.path.join(os.path.dirname(__file__), "static"),
-            # xsrf_cookies=True,
-            # cookie_secret=secret_settings.SECRET_KEY,
+            xsrf_cookies=True,
+            cookie_secret=secret_settings.SECRET_KEY,
             debug=True,
         )
+        # load and store prediction model
+        model_path = os.path.join(os.path.dirname(__file__), "training/model/conf_predict.pkl")
+        FaceAction.store_model(model_path)
         tornado.web.Application.__init__(self, handlers, **settings)
 
-        Application.observer = RecognitionObserver(instance.add_timeout, send)
-        Application.observer.set_recognizer(recognizers.TimeRecognizer(),
-                                            recognizers.MessageRecognizer())
-        Application.observer.set_action(actions.GreetingAction())
+    @classmethod
+    def add_conference(cls, user, conference_key):
+        if conference_key not in cls.observers:
+            key = MessageManager.make_client_key(user, conference_key)
+            instance = tornado.ioloop.IOLoop.instance()
+            messenger = MessageManager(user, conference_key)
+            cls.observers[key] = SayuriRecognitionObserver(instance.add_timeout, messenger.send, user, conference_key)
+            cls.observers[key].set_recognizer(recognizers.TimeRecognizer(),
+                                              recognizers.FaceRecognizer())
+            cls.observers[key].set_action(actions.TimeManagementAction(),
+                                          actions.FaceAction())
+            cls.observers[key].run()
+            return True
+        else:
+            return False
+
+    @classmethod
+    def get_conference_observer(cls, key):
+        if key in cls.observers:
+            return cls.observers[key]
+        else:
+            return None
+
+    @classmethod
+    def remove_conference(cls, key):
+        if key in cls.observers:
+            cls.observers[key].stop()
+            del cls.observers[key]
+            return True
+        else:
+            return False
 
 
-def face_recognize(face):
-    if face:
-        encoded = face.split(",")
-        client = rekognition.Client(secret_settings.FACE_API_KEY,
-                                    secret_settings.FACE_API_SECRET,
-                                    secret_settings.FACE_API_NAMESPACE,
-                                    secret_settings.FACE_API_USER_ID)
+class MessageManager(object):
 
-        obj = client.face_recognize(encoded[len(encoded) - 1], emotion=True, eye_closed=True)
-        return obj
-    else:
-        return {"msg": "hugahuga"}
+    def __init__(self, user, conference_key):
+        self.client = self.make_client_key(user, conference_key)
 
+    @classmethod
+    def make_client_key(cls, user, conference_key):
+        if user and conference_key:
+            return user + ":" + conference_key
+        else:
+            return ""
 
-def send(message):
-
-    if not message:
-        return False
-
-    # send to bot
-    p = urllib.parse.urlencode(message)
-    p = p.encode("utf-8")
-    response = None
-    # for local bot server. don't use proxy when local server.
-    if secret_settings.BOT_HOME.find("http://localhost") > -1:
-        proxy = urllib.request.ProxyHandler({})
-        opener = urllib.request.build_opener(proxy)
-        response = opener.open(secret_settings.BOT_HOME, p)
-    else:
-        request = urllib.request.Request(secret_settings.BOT_HOME, p)
-        response = urllib.request.urlopen(request)
-
-    content = response.read()
-    content = json.loads(content.decode("utf-8"), object_hook=rekognition.AttributeDict)
-
-    # see the client for feedback
-    ClientSocketHandler.broadcast(message)
-
-    return True
+    def send(self, message):
+        if not message:
+            return False
+        else:
+            ClientSocketHandler.broadcast(self.client, message)
+            return True
 
 
-class HomeHandler(tornado.web.RequestHandler):
+class BaseHandler(tornado.web.RequestHandler):
+    def get_current_user(self):
+        return self.get_secure_cookie("user")
+
+    def get_current_user_str(self):
+        return tornado.escape.to_unicode(self.get_current_user())
+
+    def get_current_conference_key(self):
+        return tornado.escape.to_unicode(self.get_secure_cookie(Conference.KEY))
+
+    def get_current_key(self):
+        return MessageManager.make_client_key(self.get_current_user_str(), self.get_current_conference_key())
+
+
+class HomeHandler(BaseHandler):
     def get(self):
-        self.write("Hello, world")
+        self.render("home.html")
 
 
-class FaceHandler(tornado.web.RequestHandler):
+class LoginHandler(BaseHandler):
     def get(self):
-        # url = "{0}://{1}{2}".format(self.request.protocol, self.request.host, self.request.uri)
-        token = str(uuid.uuid1())
-        self.set_secure_cookie("face_token", token)
+        self.redirect("/home")
 
     def post(self):
-        # token = self.get_secure_cookie("face_token")
-        face = self.get_argument("face")
-        self.write(face_recognize(face))
+        #todo implements authorization
+        self.set_secure_cookie("user", "demo_user")
+        self.redirect("/")
 
 
-class BotHandler(tornado.web.RequestHandler):
+class LogoutHandler(BaseHandler):
+    def get(self):
+        Application.remove_conference(self.get_current_key())
+        self.clear_cookie("user")
+        self.clear_cookie(Conference.KEY)
+        self.redirect("/home")
+
+
+class IndexHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        self.render("index.html")
+
+
+class ConferenceHandler(BaseHandler):
+
+    @tornado.web.authenticated
+    def get(self):
+        # return conference list of current use.
+        user = self.get_current_user_str()
+        conference_key = self.get_current_conference_key()
+        key = self.get_current_key()
+        cs = []
+        conference = ""
+        if user:
+            cs = Conference.get_users_conference(user, 5)
+
+        if conference_key:
+            conference = Conference.get(conference_key)
+            if Conference.is_end(conference):
+                conference = ""
+            elif not Application.get_conference_observer(key):
+                Application.add_conference(user, conference_key)
+
+        self.write({"conference": conference, "conferences": cs})
+
+    @tornado.web.authenticated
     def post(self):
-        data = json.loads(self.request.body.decode('utf-8'))
-        handler = Application.observer.get_recognizer(recognizers.MessageRecognizer)
+        # register conference and start observing client
+        title = self.get_argument("title")
+        minutes = self.get_argument("minutes")
+        user = self.get_current_user_str()
 
-        if handler:
-            handler.invoke(data)
+        if self.get_current_conference_key():
+            self.delete()
+
+        if title and minutes:
+            key = str(uuid.uuid1())
+            conference = Conference.to_dict(key, title, minutes)
+            Conference.store_to_user(user, conference)
+            self.set_secure_cookie(Conference.KEY, key)
+            Application.add_conference(user, key)
+            self.write({"conference": key})
+        else:
+            self.write({"conference": "", "message": "conference name is not set."})
+
+    @tornado.web.authenticated
+    def delete(self):
+
+        Application.remove_conference(self.get_current_key())
+        self.clear_cookie(Conference.KEY)
+        self.write({})
+
+
+class ImageHandler(BaseHandler):
+    @tornado.web.authenticated
+    def post(self):
+        image_data = self.get_argument("image")
+        observer = Application.get_conference_observer(self.get_current_key())
+
+        if image_data and observer:
+            image_data = image_data.split(",")
+            base64_image = image_data[len(image_data) - 1]
+            face = observer.get_recognizer(recognizers.FaceRecognizer)
+            face.invoke(base64_image)
 
 
 class ClientSocketHandler(tornado.websocket.WebSocketHandler):
-    waiters = set()
+    waiters = {}
 
     @classmethod
-    def broadcast(cls, message):
-        for waiter in cls.waiters:
+    def broadcast(cls, client, message):
+        if client in cls.waiters:
             try:
-                waiter.write_message(message)
+                cls.waiters[client].write_message(message)
             except:
                 logging.error("Error sending message", exc_info=True)
 
@@ -125,27 +219,28 @@ class ClientSocketHandler(tornado.websocket.WebSocketHandler):
         return True
 
     def open(self):
-        ClientSocketHandler.waiters.add(self)
+        if self.get_socket_group():
+            ClientSocketHandler.waiters[self.get_socket_group()] = self
 
     def on_close(self):
-        ClientSocketHandler.waiters.remove(self)
+        key = self.get_socket_group()
+        if key and key in ClientSocketHandler.waiters:
+            del ClientSocketHandler.waiters[key]
 
     def on_message(self, message):
-        # todo: separate feedback case and send data from client case
-        parsed = tornado.escape.json_decode(message)
-        face = face_recognize(parsed["face"])
-        if "action_key" in parsed:
-            action_key = parsed["action_key"]
-            Application.observer.receive_feedback(action_key, face)
+        pass
+
+    def get_socket_group(self):
+        user = tornado.escape.to_unicode(self.get_secure_cookie("user"))
+        conference = tornado.escape.to_unicode(self.get_secure_cookie(Conference.KEY))
+        return MessageManager.make_client_key(user, conference)
 
 
 def main():
     io = tornado.ioloop.IOLoop.instance()
-    application = Application(io)
+    application = Application()
     http_server = tornado.httpserver.HTTPServer(application)
     http_server.listen(80)
-
-    application.observer.run()
     io.start()
 
 

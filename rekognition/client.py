@@ -39,5 +39,5 @@ class Client(object):
         request = urllib.request.Request(cls.API_HOME, p)
         response = urllib.request.urlopen(request)
         content = response.read()
-        obj = json.loads(content.decode("utf-8"), object_hook=AttributeDict)
+        obj = json.loads(content.decode("utf-8"))
         return obj

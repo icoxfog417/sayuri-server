@@ -21,20 +21,17 @@ class Recognizer(object):
 
     def invoke(self, message=None):
 
-        if not message:
-            # recognize and get value
-            self.value = self.recognize()
-        else:
-            self.value = message
+        # recognize data
+        self.value = self.recognize(message)
 
         # store value into database
-        Datastore().store_to_list(self.key(), self.value)
+        self.observer.datastore.store_to_list(self.key(), self.value)
 
         # notify to observer that data is updated
         self.observer.notify(self)
 
     # must override
-    def recognize(self):
+    def recognize(self, message):
         # get and return recognized data
         raise Exception("You have to implements recognize method")
 
@@ -43,6 +40,7 @@ class Action(object):
 
     def __init__(self, *recognizers):
         self.recognizers = recognizers  # recognizer classes
+        self.data_range = 1
 
     @classmethod
     def key(cls):
@@ -56,57 +54,44 @@ class Action(object):
 
         return result
 
-    def trigger(self):
+    def trigger(self, observer):
+        result = None
         data = {}
+        data_ranges = []
         for r in self.recognizers:
             key = r.key()
-            value = Datastore().get_from_list(key)
+            value = observer.datastore.get_list(key, self.data_range - 1)
+            data_ranges.append(len(value))
             data.update({key: value})
 
-        result = self.execute(data)
+        if min(data_ranges) >= self.data_range:
+            result = self.execute(data, observer)
+
         if result:
-            message = self.__make_message(result)
-            self.__store_log(message)
+            message = {"message": result, "timestamp": self._get_timestamp()}
+            observer.datastore.store(self.key(), message)
             return message
         else:
             return None
 
     # must override
-    def execute(self, data):
+    def execute(self, data, observer):
         # execute some action. it returns message object for chat bot(user __make_message).
         raise Exception("You have to implements execute method")
 
     @classmethod
+    def value_to_dict(cls, value):
+        result = {}
+        values = value.split(",")
+        for v in values:
+            kv = v.split(":")
+            if len(kv) > 1:
+                result.update({kv[0]: kv[1]})
+        return result
+
+    @classmethod
     def _get_timestamp(cls):
         return datetime.now().strftime("%Y%m%d%H%M%S%f")
-
-    @classmethod
-    def __make_message(cls, message, target_user=None):
-        message = {"message": message}
-        message.update({"action_key": "{0}:{1}".format(cls.key(), cls._get_timestamp())})
-        if target_user:
-            message.update({"user": target_user})
-
-        return message
-
-    @classmethod
-    def __store_log(cls, message):
-        Datastore().store(message["action_key"], message)
-
-    # overridable
-    @classmethod
-    def receive_feedback(cls, action_key, dict_data):
-        if cls.is_my_key(action_key):
-            Datastore().store(action_key, dict_data, nx=True)
-        return {}
-
-    @classmethod
-    def is_my_key(cls, action_key):
-        key_elements = action_key.split(":")
-        if len(key_elements) > 0 and key_elements[0] == cls.key():
-            return True
-        else:
-            return False
 
 
 class RecognitionObserver(object):
@@ -118,6 +103,8 @@ class RecognitionObserver(object):
         self.send_func = send_func
         self.__recognizers = []
         self.__actions = []
+        self.datastore = Datastore()
+        self.is_continue = True
 
     def set_recognizer(self, *recognizers):
         for r in recognizers:
@@ -163,24 +150,19 @@ class RecognitionObserver(object):
             if r.interval:
                 self.schedule_func(r.interval, r.invoke)
 
+    def stop(self):
+        # run recognizing schedule jobs
+        self.is_continue = False
+
     def notify(self, invoked_recognizer):
         # notify actions that data is recognized
-        # todo have to think about each action's error handling (is Exception occures, next is not scheduled)
+        # todo have to think about each action's error handling (if Exception occurred, next is not scheduled)
         for a in self.__actions:
             if a.has_recognizer(invoked_recognizer):
-                message = a.trigger()
+                message = a.trigger(self)
                 if message:
                     self.send_func(message)
 
         # schedule for next recognition
-        self.schedule_func(invoked_recognizer.interval, invoked_recognizer.invoke)
-
-    def receive_feedback(self, action_key, feedback):
-        # notify actions that data is recognized
-        # todo think about action for feedback
-        response = ""
-        for a in self.__actions:
-            if a.is_my_key(action_key):
-                response = a.receive_feedback(action_key, feedback)
-
-        self.send_func(response)
+        if self.is_continue and invoked_recognizer.interval:
+            self.schedule_func(invoked_recognizer.interval, invoked_recognizer.invoke)

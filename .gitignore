@@ -19,5 +19,8 @@ venv
 *.iml
 *.iws
 
+.bowerrc
+static/bower_components
+training/
 secret_settings.py
 design_memo.txt
