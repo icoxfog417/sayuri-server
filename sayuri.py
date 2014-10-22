@@ -19,6 +19,10 @@ from actions import FaceAction
 import actions
 
 
+from tornado.options import define
+define("port", default=80, help="run on the given port", type=int)
+
+
 class Application(tornado.web.Application):
     observers = {}
 
@@ -241,7 +245,7 @@ def main():
     io = tornado.ioloop.IOLoop.instance()
     application = Application()
     http_server = tornado.httpserver.HTTPServer(application)
-    http_server.listen(80)
+    http_server.listen(tornado.options.options.port)
     io.start()
 
 
