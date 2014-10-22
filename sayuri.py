@@ -245,7 +245,8 @@ def main():
     io = tornado.ioloop.IOLoop.instance()
     application = Application()
     http_server = tornado.httpserver.HTTPServer(application)
-    http_server.listen(tornado.options.options.port)
+    port = int(os.environ.get("PORT", 5000))
+    http_server.listen(port)
     io.start()
 
 
