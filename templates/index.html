@@ -48,14 +48,17 @@
                     <canvas style="display:none;"></canvas>
                 </div>
             </div>
-            <div id="sayuri-evaluation" style="max-height:150px;overflow:auto">
+            <div id="sayuri-evaluation" style="margin-top:10px;max-height:150px;overflow:auto">
                 <canvas id="chart" width="585px" height="120px"></canvas>
             </div>
         </div>
     </div>
     <div class="col-md-4"  style="max-width:380px;">
         <div id="conference-list" data-bind="foreach: cf.conferences" style="margin-top:52px;">
-            <div class="conference" data-bind="text: title"></div>
+            <div class="conference" >
+                Name:<span data-bind="text: title"></span><br/>
+                Score:<span data-bind="text: rate"></span>
+            </div>
         </div>
     </div>
 {% end %}

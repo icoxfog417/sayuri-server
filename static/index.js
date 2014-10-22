@@ -76,7 +76,8 @@ function SayuriModel() {
     self.startConference = function(){
         self.cf.start(
             function(resp){
-                self.searchConference();
+                //show conference start message or animation
+                //self.searchConference();
             }
             ,function(errorMessage){
                 self.alertMessage(errorMessage);
@@ -148,6 +149,7 @@ function Conference(){
         sayuriAjax(self.API, "DELETE")
         .done(function(){
             self.isOpen(false);
+            self.searchConference();
             clearInterval(self.timer);
         });
     }

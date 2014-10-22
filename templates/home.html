@@ -4,15 +4,20 @@
 {% end %}
 
 {% block content %}
-    <div class="jumbotron">
-        <div class="container">
-            <h1>Welcome to <br/>Sayuri Conference Consultant!</h1>
-            <p>Sayuri is super consultant for conference. She judges that value of your conference.</p>
-            <br/><br/>
-            <form method="POST" action="/login">
-                {% module xsrf_form_html() %}
-                <input type="submit" class="btn btn-primary btn-lg" value="OAuth with xxxx" />
-            </form>
+    <div class="row">
+        <div class="jumbotron col-md-9">
+            <div class="container">
+                <h1>Welcome to <br/>Conference Consultant<br/>Sayuri Office!</h1>
+                <p>Sayuri judges the value of your conference.</p>
+                <br/><br/>
+                <form method="POST" action="/login">
+                    {% module xsrf_form_html() %}
+                    <input type="submit" class="btn btn-primary btn-lg" value="Knock on the door" />
+                </form>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <img src="/static/images/woman02_g_bk.jpg" class="img-responsive" alt="Responsive image">
         </div>
     </div>
 {% end %}
