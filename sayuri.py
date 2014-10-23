@@ -1,21 +1,17 @@
 # -*- coding: utf-8 -*-
 import os
 import uuid
-import json
 import logging
-from datetime import datetime
 import tornado.escape
 import tornado.ioloop
 import tornado.web
+import tornado.auth
 import tornado.httpserver
 import tornado.websocket
 import tornado.template
 import secret_settings
-from datastore import Datastore
-from recognizers import SayuriRecognitionObserver
 from model import Conference
 import recognizers
-from actions import FaceAction
 import actions
 
 
@@ -26,24 +22,26 @@ class Application(tornado.web.Application):
         handlers = [
             (r"/", IndexHandler),
             (r"/home", HomeHandler),
-            (r"/login", LoginHandler),
-            (r"/logout", LogoutHandler),
+            (r"/auth/login", LoginHandler),
+            (r"/auth/logout", LogoutHandler),
             (r"/conference", ConferenceHandler),
             (r"/conference/image", ImageHandler),
             (r"/sayurisocket", ClientSocketHandler),
         ]
         settings = dict(
-            login_url="/login",
+            login_url="/auth/login",
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
             static_path=os.path.join(os.path.dirname(__file__), "static"),
             xsrf_cookies=True,
             cookie_secret=secret_settings.SECRET_KEY,
+            facebook_api_key=secret_settings.FACEBOOK_API_KEY,
+            facebook_secret=secret_settings.FACEBOOK_API_SECRET,
             debug=True,
         )
 
         # load and store prediction model
         model_path = os.path.join(os.path.dirname(__file__), "static/models/conf_predict.pkl")
-        FaceAction.store_model(model_path)
+        actions.FaceAction.store_model(model_path)
         tornado.web.Application.__init__(self, handlers, **settings)
 
     @classmethod
@@ -52,7 +50,8 @@ class Application(tornado.web.Application):
             key = MessageManager.make_client_key(user, conference_key)
             instance = tornado.ioloop.IOLoop.instance()
             messenger = MessageManager(user, conference_key)
-            cls.observers[key] = SayuriRecognitionObserver(instance.add_timeout, messenger.send, user, conference_key)
+            cls.observers[key] = recognizers.SayuriRecognitionObserver(
+                instance.add_timeout, messenger.send, user, conference_key)
             cls.observers[key].set_recognizer(recognizers.TimeRecognizer(),
                                               recognizers.FaceRecognizer())
             cls.observers[key].set_action(actions.TimeManagementAction(),
@@ -101,7 +100,11 @@ class MessageManager(object):
 
 class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
-        return self.get_secure_cookie("user")
+        user_json = self.get_secure_cookie("user")
+        if not user_json:
+            return None
+        else:
+            return tornado.escape.json_decode(user_json)
 
     def get_current_user_str(self):
         return tornado.escape.to_unicode(self.get_current_user())
@@ -118,14 +121,29 @@ class HomeHandler(BaseHandler):
         self.render("home.html")
 
 
-class LoginHandler(BaseHandler):
+class LoginHandler(BaseHandler, tornado.auth.FacebookGraphMixin):
+    @tornado.web.asynchronous
     def get(self):
-        self.redirect("/home")
+        my_url = (self.request.protocol + "://" + self.request.host + "/auth/login?next=" +
+                  tornado.escape.url_escape(self.get_argument("next", "/")))
 
-    def post(self):
-        #todo implements authorization
-        self.set_secure_cookie("user", "demo_user")
-        self.redirect("/")
+        if self.get_argument("code", False):
+            self.get_authenticated_user(
+                redirect_uri=my_url,
+                client_id=self.settings["facebook_api_key"],
+                client_secret=self.settings["facebook_secret"],
+                code=self.get_argument("code"),
+                callback=self._on_auth)
+            return
+
+        self.authorize_redirect(redirect_uri=my_url,
+                                client_id=self.settings["facebook_api_key"])
+
+    def _on_auth(self, user):
+        if not user:
+            raise tornado.web.HTTPError(500, "Facebook auth failed")
+        self.set_secure_cookie("user", tornado.escape.json_encode(user))
+        self.redirect(self.get_argument("next", "/"))
 
 
 class LogoutHandler(BaseHandler):
@@ -133,7 +151,7 @@ class LogoutHandler(BaseHandler):
         Application.remove_conference(self.get_current_key())
         self.clear_cookie("user")
         self.clear_cookie(Conference.KEY)
-        self.redirect("/home")
+        self.redirect(self.get_argument("next", "/home"))
 
 
 class IndexHandler(BaseHandler):
@@ -241,7 +259,7 @@ def main():
     io = tornado.ioloop.IOLoop.instance()
     application = Application()
     http_server = tornado.httpserver.HTTPServer(application)
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 8080))
     http_server.listen(port)
     io.start()
 

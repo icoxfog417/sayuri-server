@@ -21,9 +21,9 @@
         }
         .conference{
             border: 1px solid silver;
-            padding: 5px;
+            padding-top: 10px;
+            padding-bottom: 10px;
             border-radius: 5px;
-            height:50px;
             margin-bottom:5px;
         }
     </style>
@@ -55,9 +55,14 @@
     </div>
     <div class="col-md-4"  style="max-width:380px;">
         <div id="conference-list" data-bind="foreach: cf.conferences" style="margin-top:52px;">
-            <div class="conference" >
-                Name:<span data-bind="text: title"></span><br/>
-                Score:<span data-bind="text: rate"></span>
+            <div class="row conference" >
+                <div class="col-md-3">
+                    <img data-bind="attr: { src: $root.sayuri.toImage(rate) }" class="img-responsive evaluation" alt="evaluation" >
+                </div>
+                <div class="col-md-9">
+                    <span data-bind="text: $root.sayuri.makeTimeDesc(start, minutes)"></span><br/>
+                    <span data-bind="text: title"></span><br/>
+                </div>
             </div>
         </div>
     </div>
