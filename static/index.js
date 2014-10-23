@@ -230,6 +230,42 @@ function SayuriMessage(sayuriHost){
         ]});
     }
 
+    self.toImage = function(rate){
+        var image = "";
+        if(rate >= 0.7){
+            image = "/static/images/best.PNG";
+        }else if(rate >= 0.4){
+            image = "/static/images/good.PNG";
+        }else if(rate >= 0.2){
+             image = "/static/images/bad.PNG";
+        }else{
+             image = "/static/images/worst.PNG";
+        }
+        return image;
+    }
+
+    self.makeTimeDesc = function(t_start, minutes){
+        var s = self.splitTimestamp(t_start);
+        var none = ["-","-","-","-"];
+        if(s.length == 0){
+            s = none;
+        }
+        var desc = "{0}/{1} {2}:{3} ({4}min)."
+        desc = desc.replace("{0}", s[2]).replace("{1}", s[3]).replace("{2}", s[4]).replace("{3}", s[5])
+        desc = desc.replace("{4}", minutes)
+        return desc;
+    }
+
+    self.splitTimestamp = function(timestamp){
+        var regexDate = /(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/;
+        var splited = regexDate.exec(timestamp);
+        var numbers = [];
+         splited.forEach(function(e){
+            numbers.push(parseInt(e));
+         })
+        return numbers;
+    }
+
 }
 
 var vm = new SayuriModel();
