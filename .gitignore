@@ -22,5 +22,6 @@ venv
 .bowerrc
 static/bower_components
 training/
+ssl/
 secret_settings.py
 design_memo.txt
