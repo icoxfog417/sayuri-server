@@ -40,7 +40,8 @@ class Action(object):
 
     def __init__(self, *recognizers):
         self.recognizers = recognizers  # recognizer classes
-        self.data_range = 1
+        self.data_size = 1
+        self.is_replace = False
 
     @classmethod
     def key(cls):
@@ -57,22 +58,28 @@ class Action(object):
     def trigger(self, observer):
         result = None
         data = {}
-        data_ranges = []
+        keys = []
+        data_sizes = []
         for r in self.recognizers:
             key = r.key()
-            value = observer.datastore.get_list(key, self.data_range - 1)
-            data_ranges.append(len(value))
+            keys.append(key)
+            value = observer.datastore.get_list(key, self.data_size - 1)
+            data_sizes.append(len(value))
             data.update({key: value})
 
-        if min(data_ranges) >= self.data_range:
+        if self.validate_data(data):
             result = self.execute(data, observer)
 
         if result:
-            message = {"message": result, "timestamp": self._get_timestamp()}
+            message = {"message": result, "timestamp": self._get_timestamp(), "action": self.key()}
             observer.datastore.store(self.key(), message)
             return message
         else:
             return None
+
+    # overridable
+    def validate_data(self, data):
+        return True
 
     # must override
     def execute(self, data, observer):
@@ -133,6 +140,14 @@ class RecognitionObserver(object):
         for r in self.__recognizers:
             if recognizer_class.key() == r.key():
                 result = r
+
+        return result
+
+    def get_action(self, action_class):
+        result = None
+        for a in self.__actions:
+            if action_class.key() == a.key():
+                result = a
 
         return result
 

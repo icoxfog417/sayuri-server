@@ -2,6 +2,7 @@
 import os
 import uuid
 import logging
+import tornado.httpclient
 import tornado.escape
 import tornado.ioloop
 import tornado.web
@@ -38,8 +39,6 @@ class Application(tornado.web.Application):
             static_path=os.path.join(os.path.dirname(__file__), "static"),
             xsrf_cookies=True,
             cookie_secret=secret_settings.SECRET_KEY,
-            facebook_api_key=secret_settings.FACEBOOK_API_KEY,
-            facebook_secret=secret_settings.FACEBOOK_API_SECRET,
             debug=True,
         )
 
@@ -57,8 +56,10 @@ class Application(tornado.web.Application):
             cls.observers[key] = recognizers.SayuriRecognitionObserver(
                 instance.add_timeout, messenger.send, user, conference_key)
             cls.observers[key].set_recognizer(recognizers.TimeRecognizer(),
+                                              recognizers.FaceDetectIntervalRecognizer(),
                                               recognizers.FaceRecognizer())
             cls.observers[key].set_action(actions.TimeManagementAction(),
+                                          actions.FaceDetectAction(),
                                           actions.FaceAction())
             cls.observers[key].run()
             return True
@@ -104,11 +105,7 @@ class MessageManager(object):
 
 class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
-        user_json = self.get_secure_cookie("user")
-        if not user_json:
-            return None
-        else:
-            return tornado.escape.json_decode(user_json)
+        return self.get_secure_cookie("user")
 
     def get_current_user_str(self):
         return tornado.escape.to_unicode(self.get_current_user())
@@ -125,29 +122,14 @@ class HomeHandler(BaseHandler):
         self.render("home.html")
 
 
-class LoginHandler(BaseHandler, tornado.auth.FacebookGraphMixin):
-    @tornado.web.asynchronous
+class LoginHandler(BaseHandler):
     def get(self):
-        my_url = (self.request.protocol + "://" + self.request.host + "/auth/login?next=" +
-                  tornado.escape.url_escape(self.get_argument("next", "/")))
+        self.redirect("/home")
 
-        if self.get_argument("code", False):
-            self.get_authenticated_user(
-                redirect_uri=my_url,
-                client_id=self.settings["facebook_api_key"],
-                client_secret=self.settings["facebook_secret"],
-                code=self.get_argument("code"),
-                callback=self._on_auth)
-            return
-
-        self.authorize_redirect(redirect_uri=my_url,
-                                client_id=self.settings["facebook_api_key"])
-
-    def _on_auth(self, user):
-        if not user:
-            raise tornado.web.HTTPError(500, "Facebook auth failed")
-        self.set_secure_cookie("user", tornado.escape.json_encode(user))
-        self.redirect(self.get_argument("next", "/"))
+    def post(self):
+        #todo implements authorization
+        self.set_secure_cookie("user", "Guest")
+        self.redirect("/")
 
 
 class LogoutHandler(BaseHandler):
@@ -155,7 +137,7 @@ class LogoutHandler(BaseHandler):
         Application.remove_conference(self.get_current_key())
         self.clear_cookie("user")
         self.clear_cookie(Conference.KEY)
-        self.redirect(self.get_argument("next", "/home"))
+        self.redirect("/home")
 
 
 class IndexHandler(BaseHandler):
@@ -175,10 +157,13 @@ class ConferenceHandler(BaseHandler):
         cs = []
         conference = ""
         if user:
-            cs = Conference.get_users_conference(user, 5)
+            # show only conference of now
+            # cs = Conference.get_users_conference(user, 0)
+            pass
 
         if conference_key:
             conference = Conference.get(conference_key)
+            cs.append(conference)
             if Conference.is_end(conference):
                 conference = ""
             elif not Application.get_conference_observer(key):
@@ -196,7 +181,7 @@ class ConferenceHandler(BaseHandler):
         if self.get_current_conference_key():
             self.delete()
 
-        if title and minutes:
+        if title and minutes and minutes.isdigit():
             key = str(uuid.uuid1())
             conference = Conference.to_dict(key, title, minutes)
             Conference.store_to_user(user, conference)
@@ -204,11 +189,10 @@ class ConferenceHandler(BaseHandler):
             Application.add_conference(user, key)
             self.write({"conference": key})
         else:
-            self.write({"conference": "", "message": "conference name is not set."})
+            self.write({"conference": "", "message": "conference name or minutes is not set."})
 
     @tornado.web.authenticated
     def delete(self):
-
         Application.remove_conference(self.get_current_key())
         self.clear_cookie(Conference.KEY)
         self.write({})
@@ -217,14 +201,20 @@ class ConferenceHandler(BaseHandler):
 class ImageHandler(BaseHandler):
     @tornado.web.authenticated
     def post(self):
-        image_data = self.get_argument("image")
+        image_data = self.get_arguments("images[]")
         observer = Application.get_conference_observer(self.get_current_key())
 
         if image_data and observer:
-            image_data = image_data.split(",")
-            base64_image = image_data[len(image_data) - 1]
             face = observer.get_recognizer(recognizers.FaceRecognizer)
-            face.invoke(base64_image)
+            images = []
+            for m in image_data:
+                image = m.split(",")
+                base64_image = image[len(image) - 1]
+                images.append(base64_image)
+
+            face.invoke(images)
+
+        self.write({})
 
 
 class ClientSocketHandler(tornado.websocket.WebSocketHandler):

@@ -36,6 +36,13 @@ class Datastore(object):
         ks = [self.__format_key(k) for k in key]
         return self.connection.delete(ks)
 
+    def delete_from_list(self, list_name, count, is_from_right=True):
+        for i in range(count):
+            if is_from_right:
+                self.connection.rpop(list_name)
+            else:
+                self.connection.lpop(list_name)
+
     def store_to_list(self, list_name, *value):
         ln = self.__format_key(list_name)
         self.connection.lpush(ln, *value)
