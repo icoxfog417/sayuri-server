@@ -228,7 +228,7 @@ function SayuriMessage(){
     var self = this;
     var host = location.host;
     self.API_IMAGE = "/conference/image"
-    self.targetAddress = "ws://{0}/sayurisocket".replace("{0}", host);
+    self.targetAddress = "wss://{0}/sayurisocket".replace("{0}", host);
     self.socket = null;
     self.diaplay_range = 10
     self.message = ko.observable("");

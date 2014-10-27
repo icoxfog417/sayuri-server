@@ -5,7 +5,7 @@ from rekognition.attribute_dict import AttributeDict
 
 
 class Client(object):
-    API_HOME = "http://rekognition.com/func/api/"
+    API_HOME = "https://rekognition.com/func/api/"
 
     def __init__(self, api_key, api_secret, name_space="demo_project", user_id="demo_user"):
         self.api_key = api_key
