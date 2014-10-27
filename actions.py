@@ -13,14 +13,12 @@ class TimeManagementAction(Action):
         super().__init__(recognizers.TimeRecognizer)
 
     def execute(self, data, observer):
-        phase = data[recognizers.TimeRecognizer.key()]
-        past_phase = observer.datastore.get_single(self.key() + ":phase")
         comment = ""
+        phase = data[recognizers.TimeRecognizer.key()][0]
+        past_phase = observer.datastore.get_single(self.key() + ":phase")
         if phase != past_phase:
             observer.datastore.store_to_list(self.key() + ":phase", phase)
-            if phase == recognizers.TimeRecognizer.PHASE_START:
-                comment = "conference is now begin! confirm agenda and today's aims."
-            elif phase == recognizers.TimeRecognizer.PHASE_CLOSING:
+            if phase == recognizers.TimeRecognizer.PHASE_CLOSING:
                 comment = "conference will close after 10 minutes. please wrap-up ."
             elif phase == recognizers.TimeRecognizer.PHASE_LIMIT:
                 comment = "conference will close after 3 minutes."
@@ -30,10 +28,17 @@ class TimeManagementAction(Action):
         return comment
 
 
+class FaceDetectAction(Action):
+    def __init__(self):
+        super().__init__(recognizers.FaceDetectIntervalRecognizer)
+
+    def execute(self, data, observer):
+        return "begin detection"
+
+
 class FaceAction(Action):
     def __init__(self):
         super().__init__(recognizers.FaceRecognizer)
-        self.data_range = 10
 
     @classmethod
     def store_model(cls, path):
@@ -52,7 +57,7 @@ class FaceAction(Action):
         # check recognized image
         response = ""
         if recognizers.FaceRecognizer.key() in data:
-            detecteds = [json.loads(j) for j in data[recognizers.FaceRecognizer.key()]]
+            detecteds = json.loads(data[recognizers.FaceRecognizer.key()][0])
             model = self.load_model()
             predictions = []
             for d in detecteds:

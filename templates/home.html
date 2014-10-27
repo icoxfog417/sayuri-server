@@ -10,7 +10,10 @@
                 <h1>Welcome to <br/>Conference Consultant<br/>Sayuri Office!</h1>
                 <p>Sayuri judges the value of your conference.</p>
                 <br/><br/>
-                <a href="/auth/login" class="btn btn-primary btn-lg" >Knock on the door</a>
+                <form method="POST" action="/auth/login">
+                    {% module xsrf_form_html() %}
+                    <input type="submit" class="btn btn-primary btn-lg" value="Knock on the door" />
+                </form>
             </div>
         </div>
         <div class="col-md-3">
