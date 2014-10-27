@@ -246,12 +246,13 @@ class ClientSocketHandler(tornado.websocket.WebSocketHandler):
 
 
 def main():
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     io = tornado.ioloop.IOLoop.instance()
     application = Application()
     http_server = tornado.httpserver.HTTPServer(application,
                                                 ssl_options={
-                                                    "keyfile": os.path.join(os.path.dirname(__file__), "ssl/serverkey.pem"),
-                                                    "certfile": os.path.join(os.path.dirname(__file__), "ssl/servercrt.pem")
+                                                    "keyfile": os.path.join(BASE_DIR, "ssl/serverkey.pem"),
+                                                    "certfile": os.path.join(BASE_DIR, "ssl/servercrt.pem")
                                                     })
     port = int(os.environ.get("PORT", 8443))
     http_server.listen(port)
