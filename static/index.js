@@ -231,6 +231,7 @@ function SayuriMessage(){
     self.targetAddress = "wss://{0}/sayurisocket".replace("{0}", host);
     self.socket = null;
     self.diaplay_range = 10
+    self.capture_count = 5
     self.message = ko.observable("");
     self.images = [];
     self.evaluated = [];
@@ -276,7 +277,7 @@ function SayuriMessage(){
         var storeImage = function(){
             takeSnap(function(imageUrl){
                 vm.sayuri.images.push(imageUrl);
-                if(vm.sayuri.images.length == 10){
+                if(vm.sayuri.images.length == vm.sayuri.capture_count){
                     sayuriAjax(self.API_IMAGE, "POST", {"images": vm.sayuri.images})
                     .always(function(){
                         vm.sayuri.evaluated.push(vm.sayuri.images.pop());
@@ -286,7 +287,7 @@ function SayuriMessage(){
             });
         }
 
-        for(var i = 1; i <= 10; i++){
+        for(var i = 1; i <= self.capture_count; i++){
             setTimeout(storeImage, i * 1000);
         }
 

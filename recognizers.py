@@ -32,7 +32,8 @@ class TimeRecognizer(Recognizer):
 
 class FaceDetectIntervalRecognizer(Recognizer):
     def __init__(self):
-        interval = timedelta(seconds=360)
+        #interval = timedelta(seconds=360)
+        interval = timedelta(seconds=60)
         super().__init__(interval)
 
     def recognize(self, message):
