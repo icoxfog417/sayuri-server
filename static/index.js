@@ -278,9 +278,9 @@ function SayuriMessage(){
             takeSnap(function(imageUrl){
                 vm.sayuri.images.push(imageUrl);
                 if(vm.sayuri.images.length == vm.sayuri.capture_count){
+                    vm.sayuri.evaluated.push(vm.sayuri.images[vm.sayuri.images.length - 1]);
                     sayuriAjax(self.API_IMAGE, "POST", {"images": vm.sayuri.images})
                     .always(function(){
-                        vm.sayuri.evaluated.push(vm.sayuri.images.pop());
                         vm.sayuri.images = [];
                     })
                 }
