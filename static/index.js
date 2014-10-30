@@ -89,8 +89,8 @@ function SayuriModel() {
     self.stopWatch = null;
 
     self.init = function(){
-        self.searchConference();
         self.sayuri.renderChart();
+        self.cf.search(self.searchText());
     }
 
     self.addMessages = function(){
@@ -98,6 +98,7 @@ function SayuriModel() {
     }
 
     self.startConference = function(){
+        self.sayuri.reset();
         self.cf.start(
             function(resp){
                 self.sayuri.create();
@@ -121,22 +122,18 @@ function SayuriModel() {
 
     self.endConference = function(){
         clearInterval(self.keepAlive);
-        self.cf.end();
-        self.sayuri.message("conference has just end!.")
-    }
-
-    self.searchConference = function(){
         self.cf.search(self.searchText(), function(){
-            if(self.cf.isOpen()){
-                self.connectionKeep();
-            }
+            self.cf.end();
         });
+        self.sayuri.message("conference has just end!.")
     }
 
     self.showImage = function(data, event){
         var $modal = $("#imageModal");
         $modal.find(".modal-body").empty();
+        $modal.find(".advice").empty();
         $($(event.target).parents('div').html()).appendTo('.modal-body');
+        $modal.find(".advice").text($(event.target).attr("alt"));
         $modal.modal({show:true});
     }
 
@@ -198,7 +195,6 @@ function Conference(){
             clearInterval(self.stopWatch);
             self.startTime = null;
             self.isOpen(false);
-            self.search();
         });
     }
 
@@ -257,10 +253,11 @@ function SayuriMessage(){
                 if(action == "facedetectaction"){
                     self.detectFace();
                 }else if(action == "faceaction"){
-                    var rate = parseFloat(message);
+                    var msgObj = JSON.parse(message);
                     if(self.evaluated.length > 0){
-                        self.evaluations.push({"image": self.evaluated.shift(), "rate":rate});
-                        self.rates.push(rate);
+                        msgObj["image"] = self.evaluated.shift();
+                        self.evaluations.push(msgObj);
+                        self.rates.push(msgObj.rate);
                         if(self.rates.length > self.diaplay_range){
                             self.rates.shift();
                         }
@@ -271,6 +268,15 @@ function SayuriMessage(){
                 }
             };
         }
+    }
+
+    self.reset = function(){
+        self.message("");
+        self.images = [];
+        self.evaluated = [];
+        self.evaluations([]);
+        self.rates = [];
+        self.socket = null;
     }
 
     self.detectFace = function(){
@@ -346,3 +352,8 @@ var vm = new SayuriModel();
 ko.applyBindings(vm);
 enableMedia();
 vm.init();
+
+//if xsrf is none, return to top page
+if(!getCookie("_xsrf")){
+    location.href = "/home"
+}

@@ -74,7 +74,7 @@
             <div data-bind="foreach: sayuri.evaluations" class="row" style="max-height:380px;overflow:auto">
                 <div class="col-md-4 sight" style="margin-bottom:10px;" >
                     <div>
-                        <img data-bind="attr: { src: image, title:rate }, click: $root.showImage" class="img-responsive thumbnail" alt="evaluated view">
+                        <img data-bind="attr: { src: image, alt:advice }, click: $root.showImage" class="img-responsive thumbnail">
                         <img data-bind="attr: { src: $root.sayuri.toImage(rate) }" style="position:absolute;right:10px;bottom:10px;width:25px;border-radius: 10px;">
                     </div>
                 </div>
@@ -100,7 +100,8 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="close" data-dismiss="modal" style="line-height: 10px;">×</button>
+                    <span class="advice"></span>
+                    <button type="button" class="close" data-dismiss="modal" >×</button>
                 </div>
                 <div class="modal-body">
                 </div>

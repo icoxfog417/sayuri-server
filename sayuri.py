@@ -43,7 +43,7 @@ class Application(tornado.web.Application):
         )
 
         # load and store prediction model
-        model_path = os.path.join(os.path.dirname(__file__), "static/models/conf_predict.pkl")
+        model_path = os.path.join(os.path.dirname(__file__), "static/models")
         actions.FaceAction.store_model(model_path)
         tornado.web.Application.__init__(self, handlers, **settings)
 

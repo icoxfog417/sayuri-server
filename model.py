@@ -40,16 +40,21 @@ class Conference(object):
         return conferences
 
     @classmethod
-    def update_rate(cls, conference_key, rate):
+    def update_rate(cls, conference_key, advice, rate):
         conference = cls.get(conference_key)
+        if advice:
+            conference["advice"] = advice
+
         if rate > conference["rate"]:
             conference["rate"] = rate
-            cls.store(conference)
+
+        cls.store(conference)
 
     @classmethod
     def to_dict(cls, key, title, minutes):
         conference = {"key": key, "title": title,
-                      "start": cls.to_str(datetime.now()), "minutes": minutes, "rate": -1}
+                      "start": cls.to_str(datetime.now()), "minutes": minutes,
+                      "advice": "", "rate": -1}
         return conference
 
     @classmethod

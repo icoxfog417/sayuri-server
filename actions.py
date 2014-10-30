@@ -42,37 +42,90 @@ class FaceAction(Action):
 
     @classmethod
     def store_model(cls, path):
-        model = joblib.load(path)
-        serialized = pickle.dumps(model)
-        serialized = base64.b64encode(serialized)
-        Datastore().store(cls.key() + ":model", serialized)
+        model = joblib.load(path + "/conf_predict.pkl")
+        summary = {}
+        with open(path + "/data_summary.pkl", "rb") as fo:
+            summary = pickle.load(fo)
+
+        Datastore().store(cls.key() + ":model", cls.serialize(model))
+        Datastore().store(cls.key() + ":summary", cls.serialize(summary))
 
     @classmethod
     def load_model(cls):
-        serialized = Datastore().get(cls.key() + ":model")
-        serialized = base64.b64decode(serialized)
-        return pickle.loads(serialized)
+        model = Datastore().get(cls.key() + ":model")
+        summary = Datastore().get(cls.key() + ":summary")
+        return cls.deserialize(model), cls.deserialize(summary)
+
+    @classmethod
+    def serialize(cls, item):
+        sd = pickle.dumps(item)
+        sd = base64.b64encode(sd)
+        return sd
+
+    @classmethod
+    def deserialize(cls, serialized):
+        ds = base64.b64decode(serialized)
+        ds = pickle.loads(ds)
+        return ds
 
     def execute(self, data, observer):
         # check recognized image
-        response = ""
+        rate = ""
+        advice = ""
         if recognizers.FaceRecognizer.key() in data:
             detecteds = json.loads(data[recognizers.FaceRecognizer.key()][0])
-            model = self.load_model()
+            model, summary = self.load_model()
             predictions = []
+            params = []
             for d in detecteds:
-                param = self.get_parameters(d)
+                param = self.__get_parameters(d, summary)
                 if param:
+                    params.append(param)
                     predictions.append(model.predict(param))
 
             if len(predictions) > 0:
-                good_rate = float(sum(predictions)) / len(predictions)
-                response = "{0}".format(good_rate)
-                Conference.update_rate(observer.conference_key, good_rate)
+                advice = self.__make_advice(params)
+                rate = float(sum(predictions)) / len(predictions)
+                Conference.update_rate(observer.conference_key, advice, rate)
 
-        return response
+        return json.dumps({"advice": advice, "rate": rate})
 
-    def get_parameters(self, faces):
+
+    @classmethod
+    def __make_advice(cls, params):
+        advice = ""
+        if len(params) > 0:
+            maxs = max(params)
+            mins = min(params)
+            advice = cls.__advice_cases(mins, -1,
+                                        "everybody lose motivation... Do you really need this meeting?",
+                                        "someone feel tired. Why don't you change the viewpoint of discussion?",
+                                        "someone feel miserable. Let's change the mood.")
+
+            praise = cls.__advice_cases(maxs, 1,
+                                        "wonderful conference! excellent!",
+                                        "everybody attending conference! very good.",
+                                        "everybody relax and vivid! very good.")
+
+            if praise:
+                advice = praise
+
+        return advice
+
+    @classmethod
+    def __advice_cases(cls, data, boundary, both, left, right):
+        advice = ""
+        if data[0] >= boundary and data[1] >= boundary:
+            advice = both
+        if data[0] >= boundary:
+            advice = left
+        if data[1] >= boundary:
+            advice = right
+
+        return advice
+
+    @classmethod
+    def __get_parameters(cls, faces, summary):
         if faces and len(faces["face_detection"]) > 0:
             pitches = []
             smiles = []
@@ -86,12 +139,22 @@ class FaceAction(Action):
             max_smile = 0
             if len(pitches) > 0:
                 min_pitches = min(pitches)
+                min_pitches = cls.__regularization(min_pitches, summary, 0)
 
             if len(smiles) > 0:
                 max_smile = max(smiles)
+                max_smile = cls.__regularization(max_smile, summary, 1)
 
             return min_pitches, max_smile
         else:
             return None
 
 
+    @classmethod
+    def __regularization(cls, value, summary, index):
+        data_size = float(summary["struct"]["len"])
+        d_sum = summary["summary"][index]["sum"]
+        d_max = summary["summary"][index]["max"]
+        d_min = summary["summary"][index]["min"]
+        d_sd = (d_max - d_min) / 4
+        return (value - (d_sum / data_size)) / d_sd
