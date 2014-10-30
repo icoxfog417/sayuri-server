@@ -7,7 +7,7 @@ var localMediaStream = null;
 var capturedImageURL = "";
 
 function enableMedia(){
-    navigator.getUserMedia = navigator.webkitGetUserMedia || navigator.getUserMedia;
+    navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
     navigator.getUserMedia({video: true}, function(stream) {
         video.src = window.URL.createObjectURL(stream);
         localMediaStream = stream;
