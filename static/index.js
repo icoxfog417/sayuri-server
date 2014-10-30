@@ -75,6 +75,20 @@ function splitTimestamp(timestamp){
     return numbers;
 }
 
+function speechText(text){
+    if (!'SpeechSynthesisUtterance' in window) {
+        return false;
+    }
+    var msg = new SpeechSynthesisUtterance();
+    msg.volume = 1;
+    msg.rate = 1;
+    msg.pitch = 2;
+    msg.text = text;
+    msg.lang = "en-US";
+    speechSynthesis.speak(msg);
+    return true
+}
+
 /*
   View Mode
 */
@@ -99,6 +113,7 @@ function SayuriModel() {
 
     self.startConference = function(){
         self.sayuri.reset();
+        self.sayuri.speech("conference is now begin! confirm agenda and today's aims.")
         self.cf.start(
             function(resp){
                 self.sayuri.create();
@@ -116,7 +131,6 @@ function SayuriModel() {
             self.keepAlive = setInterval(function(){
                 vm.sayuri.create();
             }, 1500)
-            self.sayuri.message("conference is now begin! confirm agenda and today's aims.")
         }
     }
 
@@ -125,7 +139,7 @@ function SayuriModel() {
         self.cf.search(self.searchText(), function(){
             self.cf.end();
         });
-        self.sayuri.message("conference has just end!.")
+        self.sayuri.speech("conference has just end!.")
     }
 
     self.showImage = function(data, event){
@@ -133,8 +147,10 @@ function SayuriModel() {
         $modal.find(".modal-body").empty();
         $modal.find(".advice").empty();
         $($(event.target).parents('div').html()).appendTo('.modal-body');
-        $modal.find(".advice").text($(event.target).attr("alt"));
+        var advice = $(event.target).attr("alt")
+        $modal.find(".advice").text(advice);
         $modal.modal({show:true});
+        speechText(advice);
     }
 
 }
@@ -264,7 +280,7 @@ function SayuriMessage(){
                         self.renderChart();
                     }
                 }else{
-                    self.message(message);
+                    self.speech(message);
                 }
             };
         }
@@ -277,6 +293,11 @@ function SayuriMessage(){
         self.evaluations([]);
         self.rates = [];
         self.socket = null;
+    }
+
+    self.speech = function(message){
+        speechText(message);
+        self.message(message);
     }
 
     self.detectFace = function(){
@@ -324,7 +345,7 @@ function SayuriMessage(){
 
     self.toImage = function(rate){
         var image = "";
-        if(rate >= 0.7){
+        if(rate >= 0.8){
             image = "/static/images/best.PNG";
         }else if(rate >= 0.4){
             image = "/static/images/good.PNG";
