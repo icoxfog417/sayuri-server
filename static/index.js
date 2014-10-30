@@ -226,7 +226,7 @@ function SayuriMessage(){
     self.API_IMAGE = "/conference/image"
     self.targetAddress = "wss://{0}/sayurisocket".replace("{0}", host);
     self.socket = null;
-    self.diaplay_range = 10
+    self.display_range = 10
     self.capture_count = 5
     self.message = ko.observable("");
     self.images = [];
@@ -258,7 +258,7 @@ function SayuriMessage(){
                         msgObj["image"] = self.evaluated.shift();
                         self.evaluations.push(msgObj);
                         self.rates.push(msgObj.rate);
-                        if(self.rates.length > self.diaplay_range){
+                        if(self.rates.length > self.display_range){
                             self.rates.shift();
                         }
                         self.renderChart();
@@ -301,12 +301,14 @@ function SayuriMessage(){
 
     self.renderChart = function(){
         var labels = [];
-        if(self.rates.length == 0){
-            for(var i = 0; i < self.diaplay_range - 1;i++){
-                self.rates.push(0.1);
+        var data = []
+        for(var i = 0; i < self.display_range;i++){
+            var diff = self.display_range - self.rates.length
+            if(i >= diff){
+                data.push(self.rates[i - diff]);
+            }else{
+                data.push(0);
             }
-        }
-        for(var i = 0; i < self.rates.length;i++){
             labels.push(i + 1);
         }
         self.chart = new Chart(self.chartArea).Line({labels: labels ,"datasets":[
@@ -315,7 +317,7 @@ function SayuriMessage(){
                 fillColor: "rgba(151,187,205,0.2)",
                 strokeColor: "rgba(151,187,205,1)",
                 pointColor: "rgba(151,187,205,1)",
-                data:self.rates
+                data:data
             }
         ]});
     }
