@@ -1,0 +1,28 @@
+{
+  "name": "Conference Consultant Sayuri",
+  "description": "Sayuri evaluates your conference by machine learning.",
+  "repository": "https://github.com/icoxfog417/sayuri-server.git",
+  "keywords": ["Python", "tornado", "scikit-learn"],
+  "env": {
+    "BUILDPACK_URL": "https://github.com/kennethreitz/conda-buildpack",
+    "SECRET_KEY": {
+      "description": "A secret key for verifying the integrity of signed cookies.",
+      "generator": "secret"
+    },
+    "FACE_API_KEY": {
+      "description": "Rekognition api key."
+    },
+    "FACE_API_SECRET": {
+      "description": "Rekognition secret key."
+    },
+    "FACE_API_NAMESPACE": {
+      "description": "Rekognition api's namespace."
+    },
+    "FACE_API_USER_ID": {
+      "description": "Rekognition api's user id."
+    }
+  },
+  "addons": [
+    "rediscloud"
+  ]
+}

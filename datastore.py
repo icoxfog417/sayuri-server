@@ -6,7 +6,7 @@ import secret_settings
 class Datastore(object):
 
     def __init__(self, *args):
-        self.redis_url = os.getenv('REDISTOGO_URL', secret_settings.REDIS_URL)
+        self.redis_url = os.getenv('REDISCLOUD_URL', secret_settings.REDIS_URL)
         self.connection = redis.StrictRedis.from_url(self.redis_url, decode_responses=True)
         self.schema = list(args)  # schema is attached to every key
 
