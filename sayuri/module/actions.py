@@ -1,11 +1,11 @@
 import json
 import base64
 import pickle
-from sklearn.externals import joblib
 from sayuri.datastore import Datastore
 from sayuri.module import recognizers
 from sayuri.module import model as mdl
 from sayuri.framework import Action
+from sayuri.machine import MachineLoader
 
 
 class TimeManagementAction(Action):
@@ -41,12 +41,9 @@ class FaceAction(Action):
         super().__init__(recognizers.FaceRecognizer)
 
     @classmethod
-    def store_machine(cls, path):
-        machine = joblib.load(path + "/conf_predict.pkl")
-        summary = {}
-        with open(path + "/data_summary.pkl", "rb") as fo:
-            summary = pickle.load(fo)
-
+    def store_machine(cls):
+        import sayuri.machine.evaluator
+        machine, summary = MachineLoader.load(sayuri.machine.evaluator)
         Datastore().store(cls.key() + ":machine", cls.serialize(machine))
         Datastore().store(cls.key() + ":summary", cls.serialize(summary))
 

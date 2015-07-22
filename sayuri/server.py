@@ -41,8 +41,7 @@ class Application(tornado.web.Application):
         )
 
         # load and store prediction model
-        machine_path = os.path.join(os.path.dirname(__file__), "static/machine")
-        actions.FaceAction.store_machine(machine_path)
+        actions.FaceAction.store_machine()
         tornado.web.Application.__init__(self, handlers, **settings)
 
     @classmethod
