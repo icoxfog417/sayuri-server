@@ -15,10 +15,6 @@ from sayuri.module import recognizers
 from sayuri.module import actions
 
 
-from tornado.options import define
-define("port", default=80, help="run on the given port", type=int)
-
-
 class Application(tornado.web.Application):
     observers = {}
 

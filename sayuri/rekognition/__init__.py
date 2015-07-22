@@ -5,5 +5,4 @@ __all__ = ['Client']
 
 USER_AGENT = 'Rekognition Python API Wrapper %s' % __version__
 
-from rekognition.attribute_dict import AttributeDict
-from rekognition.client import Client
+from sayuri.rekognition.client import Client

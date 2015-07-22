@@ -1,8 +1,7 @@
 import unittest
 import os
 import base64
-import secret_settings
-import rekognition
+from sayuri import rekognition
 
 
 class TestRekognition(unittest.TestCase):
@@ -15,13 +14,14 @@ class TestRekognition(unittest.TestCase):
         client = self.__create_client()
         image = self.__read_image("persons.jpg")
         result = client.face_recognize(image)
-        self.assertEqual(result.usage.status, "Succeed.")
+        self.assertTrue("usage" in result)
+        self.assertTrue("status" in result["usage"])
+        self.assertEqual(result["usage"]["status"], "Succeed.")
 
     def __create_client(self):
-        client = rekognition.Client(secret_settings.FACE_API_KEY,
-                                    secret_settings.FACE_API_SECRET,
-                                    secret_settings.FACE_API_NAMESPACE,
-                                    secret_settings.FACE_API_USER_ID)
+        from sayuri.env import Environment
+        key = Environment().face_api_keys()
+        client = rekognition.Client(key.key, key.secret, key.namespace, key.user_id)
         return client
 
     def __read_image(self, test_file_name):

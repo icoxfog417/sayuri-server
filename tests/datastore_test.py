@@ -1,6 +1,6 @@
 import unittest
 import random
-from datastore import Datastore
+from sayuri.datastore import Datastore
 
 
 class TestDatastore(unittest.TestCase):
