@@ -2,10 +2,10 @@ import json
 import base64
 import pickle
 from sklearn.externals import joblib
-from datastore import Datastore
-import recognizers
-from sayuri_framework import Action
-from model import Conference
+from sayuri.datastore import Datastore
+from sayuri.module import recognizers
+from sayuri.module import model as mdl
+from sayuri.framework import Action
 
 
 class TimeManagementAction(Action):
@@ -41,20 +41,20 @@ class FaceAction(Action):
         super().__init__(recognizers.FaceRecognizer)
 
     @classmethod
-    def store_model(cls, path):
-        model = joblib.load(path + "/conf_predict.pkl")
+    def store_machine(cls, path):
+        machine = joblib.load(path + "/conf_predict.pkl")
         summary = {}
         with open(path + "/data_summary.pkl", "rb") as fo:
             summary = pickle.load(fo)
 
-        Datastore().store(cls.key() + ":model", cls.serialize(model))
+        Datastore().store(cls.key() + ":machine", cls.serialize(machine))
         Datastore().store(cls.key() + ":summary", cls.serialize(summary))
 
     @classmethod
-    def load_model(cls):
-        model = Datastore().get(cls.key() + ":model")
+    def load_machine(cls):
+        machine = Datastore().get(cls.key() + ":machine")
         summary = Datastore().get(cls.key() + ":summary")
-        return cls.deserialize(model), cls.deserialize(summary)
+        return cls.deserialize(machine), cls.deserialize(summary)
 
     @classmethod
     def serialize(cls, item):
@@ -74,19 +74,19 @@ class FaceAction(Action):
         advice = ""
         if recognizers.FaceRecognizer.key() in data:
             detecteds = json.loads(data[recognizers.FaceRecognizer.key()][0])
-            model, summary = self.load_model()
+            machine, summary = self.load_machine()
             predictions = []
             params = []
             for d in detecteds:
                 param = self.__get_parameters(d, summary)
                 if param:
                     params.append(param)
-                    predictions.append(model.predict(param))
+                    predictions.append(machine.predict(param))
 
             if len(predictions) > 0:
                 advice = self.__make_advice(params)
                 rate = float(sum(predictions)) / len(predictions)
-                Conference.update_rate(observer.conference_key, advice, rate)
+                mdl.Conference.update_rate(observer.conference_key, advice, rate)
 
         return json.dumps({"advice": advice, "rate": rate})
 

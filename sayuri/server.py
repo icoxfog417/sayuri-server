@@ -10,10 +10,9 @@ import tornado.auth
 import tornado.httpserver
 import tornado.websocket
 import tornado.template
-import secret_settings
-from model import Conference
-import recognizers
-import actions
+from sayuri.module import model as mdl
+from sayuri.module import recognizers
+from sayuri.module import actions
 
 
 from tornado.options import define
@@ -24,6 +23,9 @@ class Application(tornado.web.Application):
     observers = {}
 
     def __init__(self):
+        from sayuri.env import Environment
+        secret_key = Environment().secret_key()
+
         handlers = [
             (r"/", IndexHandler),
             (r"/home", HomeHandler),
@@ -38,13 +40,13 @@ class Application(tornado.web.Application):
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
             static_path=os.path.join(os.path.dirname(__file__), "static"),
             xsrf_cookies=True,
-            cookie_secret=secret_settings.SECRET_KEY,
+            cookie_secret=secret_key,
             debug=True,
         )
 
         # load and store prediction model
-        model_path = os.path.join(os.path.dirname(__file__), "static/models")
-        actions.FaceAction.store_model(model_path)
+        machine_path = os.path.join(os.path.dirname(__file__), "static/machine")
+        actions.FaceAction.store_machine(machine_path)
         tornado.web.Application.__init__(self, handlers, **settings)
 
     @classmethod
@@ -111,7 +113,7 @@ class BaseHandler(tornado.web.RequestHandler):
         return tornado.escape.to_unicode(self.get_current_user())
 
     def get_current_conference_key(self):
-        return tornado.escape.to_unicode(self.get_secure_cookie(Conference.KEY))
+        return tornado.escape.to_unicode(self.get_secure_cookie(mdl.Conference.KEY))
 
     def get_current_key(self):
         return MessageManager.make_client_key(self.get_current_user_str(), self.get_current_conference_key())
@@ -136,7 +138,7 @@ class LogoutHandler(BaseHandler):
     def get(self):
         Application.remove_conference(self.get_current_key())
         self.clear_cookie("user")
-        self.clear_cookie(Conference.KEY)
+        self.clear_cookie(mdl.Conference.KEY)
         self.redirect("/home")
 
 
@@ -162,9 +164,9 @@ class ConferenceHandler(BaseHandler):
             pass
 
         if conference_key:
-            conference = Conference.get(conference_key)
+            conference = mdl.Conference.get(conference_key)
             cs.append(conference)
-            if Conference.is_end(conference):
+            if mdl.Conference.is_end(conference):
                 conference = ""
             elif not Application.get_conference_observer(key):
                 Application.add_conference(user, conference_key)
@@ -183,9 +185,9 @@ class ConferenceHandler(BaseHandler):
 
         if title and minutes and minutes.isdigit():
             key = str(uuid.uuid1())
-            conference = Conference.to_dict(key, title, minutes)
-            Conference.store_to_user(user, conference)
-            self.set_secure_cookie(Conference.KEY, key)
+            conference = mdl.Conference.to_dict(key, title, minutes)
+            mdl.Conference.store_to_user(user, conference)
+            self.set_secure_cookie(mdl.Conference.KEY, key)
             Application.add_conference(user, key)
             self.write({"conference": key})
         else:
@@ -194,7 +196,7 @@ class ConferenceHandler(BaseHandler):
     @tornado.web.authenticated
     def delete(self):
         Application.remove_conference(self.get_current_key())
-        self.clear_cookie(Conference.KEY)
+        self.clear_cookie(mdl.Conference.KEY)
         self.write({})
 
 
@@ -245,26 +247,22 @@ class ClientSocketHandler(tornado.websocket.WebSocketHandler):
 
     def get_socket_group(self):
         user = tornado.escape.to_unicode(self.get_secure_cookie("user"))
-        conference = tornado.escape.to_unicode(self.get_secure_cookie(Conference.KEY))
+        conference = tornado.escape.to_unicode(self.get_secure_cookie(mdl.Conference.KEY))
         return MessageManager.make_client_key(user, conference)
 
 
-def main():
+def run(port=8443, ssl_key="", ssl_secret=""):
     io = tornado.ioloop.IOLoop.instance()
     application = Application()
-    if os.path.isdir(os.path.join(os.path.dirname(__file__), "ssl")):
+    if ssl_key and ssl_secret:
         http_server = tornado.httpserver.HTTPServer(application,
                                                     ssl_options={
-                                                        "keyfile": os.path.join(os.path.dirname(__file__), "ssl/serverkey.pem"),
-                                                        "certfile": os.path.join(os.path.dirname(__file__), "ssl/servercrt.pem")
+                                                        "keyfile": ssl_key,
+                                                        "certfile": ssl_secret
                                                         })
     else:
         http_server = tornado.httpserver.HTTPServer(application)
 
-    port = int(os.environ.get("PORT", 8443))
-    http_server.listen(port)
+    _port = int(os.environ.get("PORT", port))
+    http_server.listen(_port)
     io.start()
-
-
-if __name__ == "__main__":
-    main()

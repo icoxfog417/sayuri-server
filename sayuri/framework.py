@@ -1,5 +1,5 @@
 from datetime import datetime
-from datastore import Datastore
+from sayuri.datastore import Datastore
 
 
 class Recognizer(object):

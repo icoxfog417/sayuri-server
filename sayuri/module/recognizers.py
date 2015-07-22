@@ -1,10 +1,10 @@
 from datetime import datetime
 from datetime import timedelta
 import json
-from sayuri_framework import Recognizer, RecognitionObserver
-import rekognition
-from model import Conference
-from datastore import Datastore
+from sayuri.framework import Recognizer, RecognitionObserver
+from sayuri import rekognition
+from sayuri.datastore import Datastore
+from sayuri.module import model as mdl
 
 
 class TimeRecognizer(Recognizer):
@@ -18,8 +18,8 @@ class TimeRecognizer(Recognizer):
         super().__init__(interval)
 
     def recognize(self, message):
-        conference = Conference.get(self.observer.conference_key)
-        delta = Conference.calculate_remained(conference)
+        conference = mdl.Conference.get(self.observer.conference_key)
+        delta = mdl.Conference.calculate_remained(conference)
 
         if delta <= 0:
             self.observer.is_continue = False
@@ -50,11 +50,9 @@ class FaceRecognizer(Recognizer):
         return json.dumps(detected_face)
 
     def face_recognize(self, base64_images):
-        import secret_settings
-        client = rekognition.Client(secret_settings.FACE_API_KEY,
-                                    secret_settings.FACE_API_SECRET,
-                                    secret_settings.FACE_API_NAMESPACE,
-                                    secret_settings.FACE_API_USER_ID)
+        from sayuri.env import Environment
+        key = Environment().face_api_keys()
+        client = rekognition.Client(key.key, key.secret, key.namespace, key.user_id)
 
         detecteds = []
         for b64m in base64_images:

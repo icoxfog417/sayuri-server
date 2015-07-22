@@ -1,7 +1,6 @@
 import urllib.request
 import urllib.parse
 import json
-from rekognition.attribute_dict import AttributeDict
 
 
 class Client(object):

@@ -1,1 +1,1 @@
-web: python sayuri.py
+web: python run.py

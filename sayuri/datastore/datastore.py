@@ -1,12 +1,12 @@
-import os
 import redis
-import secret_settings
+from sayuri.env import Environment
 
 
 class Datastore(object):
 
     def __init__(self, *args):
-        self.redis_url = os.getenv('REDISCLOUD_URL', secret_settings.REDIS_URL)
+        env = Environment()
+        self.redis_url = env.redis_url()
         self.connection = redis.StrictRedis.from_url(self.redis_url, decode_responses=True)
         self.schema = list(args)  # schema is attached to every key
 

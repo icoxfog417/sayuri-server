@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import json
-from datastore import Datastore
+from sayuri.datastore import Datastore
 
 
 class Conference(object):
