@@ -166,6 +166,10 @@ function Conference(){
     self.elapse = ko.observable("　");
     self.stopWatch = null;
 
+    self.hasConferences = function(){
+        return self.conferences().length > 0 ? true : false;
+    }
+
     self.start = function(success, error){
         console.log("begin conference (check group name and conference name)");
         var data = {"title": self.conferenceName(), "minutes": self.conferenceTime()}

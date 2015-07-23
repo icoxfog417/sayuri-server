@@ -35,7 +35,7 @@
             <input id="txtConfName" class="form-control" style="width:65%" type="text" placeholder="conference title" data-bind="value: cf.conferenceName, enable: !cf.isOpen()"/>
             <input id="txtMinutes" class="form-control" style="width:20%" type="text" placeholder="minutes" data-bind="value: cf.conferenceTime, enable: !cf.isOpen()"/>
             <button id="btnCfBegin" type="submit" class="btn btn-primary" style="width:10%" data-bind="click:startConference, visible:!cf.isOpen()">Start</button>
-            <button id="btnCfEnd" type="submit" class="btn btn-danger" style="width:10%" data-bind="click:endConference, visible:cf.isOpen()">Stop</button>
+            <button id="btnCfEnd" type="submit" class="btn btn-danger" style="width:10%;display:none" data-bind="click:endConference, visible:cf.isOpen()">Stop</button>
         </div>
         <br style="clear:both"/>
         <div>
@@ -58,7 +58,7 @@
     </div>
     <div class="col-md-4" style="max-width:380px;">
         <div style="font-size: 2.5em;text-align: right;" data-bind="text:cf.elapse"></div>
-        <div id="conference-list" data-bind="foreach: cf.conferences" style="margin-top:3px;">
+        <div id="conference-list" data-bind="foreach: cf.conferences, visible:cf.hasConferences()" style="margin-top:3px;display:none">
             <div class="row conference" >
                 <div class="col-md-3">
                     <img data-bind="attr: { src: $root.sayuri.toImage(rate) }" class="img-responsive rate" alt="rate" >
@@ -113,6 +113,7 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.3.0/knockout-min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/1.0.2/Chart.min.js"></script>
     <script src="/static/index.js"></script>
 {% end %}
