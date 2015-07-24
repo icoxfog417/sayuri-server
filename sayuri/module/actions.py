@@ -43,15 +43,13 @@ class FaceAction(Action):
     @classmethod
     def store_machine(cls):
         import sayuri.machine.evaluator
-        machine, summary = MachineLoader.load(sayuri.machine.evaluator)
+        machine = MachineLoader.load(sayuri.machine.evaluator)
         Datastore().store(cls.key() + ":machine", cls.serialize(machine))
-        Datastore().store(cls.key() + ":summary", cls.serialize(summary))
 
     @classmethod
     def load_machine(cls):
         machine = Datastore().get(cls.key() + ":machine")
-        summary = Datastore().get(cls.key() + ":summary")
-        return cls.deserialize(machine), cls.deserialize(summary)
+        return cls.deserialize(machine)
 
     @classmethod
     def serialize(cls, item):
@@ -71,11 +69,11 @@ class FaceAction(Action):
         advice = ""
         if recognizers.FaceRecognizer.key() in data:
             detecteds = json.loads(data[recognizers.FaceRecognizer.key()][0])
-            machine, summary = self.load_machine()
+            machine = self.load_machine()
             predictions = []
             params = []
             for d in detecteds:
-                param = self.__get_parameters(d, summary)
+                param = self.__get_parameters(d)
                 if param:
                     params.append(param)
                     predictions.append(machine.predict(param))
@@ -122,7 +120,7 @@ class FaceAction(Action):
         return advice
 
     @classmethod
-    def __get_parameters(cls, faces, summary):
+    def __get_parameters(cls, faces):
         if faces and len(faces["face_detection"]) > 0:
             pitches = []
             smiles = []
@@ -136,22 +134,10 @@ class FaceAction(Action):
             max_smile = 0
             if len(pitches) > 0:
                 min_pitches = min(pitches)
-                min_pitches = cls.__regularization(min_pitches, summary, 0)
 
             if len(smiles) > 0:
                 max_smile = max(smiles)
-                max_smile = cls.__regularization(max_smile, summary, 1)
 
             return min_pitches, max_smile
         else:
             return None
-
-
-    @classmethod
-    def __regularization(cls, value, summary, index):
-        data_size = float(summary["struct"]["len"])
-        d_sum = summary["summary"][index]["sum"]
-        d_max = summary["summary"][index]["max"]
-        d_min = summary["summary"][index]["min"]
-        d_sd = (d_max - d_min) / 4
-        return (value - (d_sum / data_size)) / d_sd
