@@ -350,13 +350,13 @@ function SayuriMessage(){
     self.toImage = function(rate){
         var image = "";
         if(rate >= 0.8){
-            image = "/static/images/best.PNG";
+            image = "/static/images/best.png";
         }else if(rate >= 0.4){
-            image = "/static/images/good.PNG";
+            image = "/static/images/good.png";
         }else if(rate >= 0.2){
-             image = "/static/images/bad.PNG";
+             image = "/static/images/bad.png";
         }else{
-             image = "/static/images/worst.PNG";
+             image = "/static/images/worst.png";
         }
         return image;
     }
