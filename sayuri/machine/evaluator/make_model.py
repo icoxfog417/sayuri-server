@@ -43,7 +43,7 @@ def make_model(y, X, columns, save_model=False):
     clf = GridSearchCV(svm.SVC(C=1), candidates, cv=5, scoring="f1")
     clf.fit(x_train, y_train)
 
-    for params, mean_score, scores in clf.grid_scores_:
+    for params, mean_score, scores in sorted(clf.grid_scores_, key=lambda s: s[1], reverse=True):
         print("%0.3f (+/-%0.03f) for %r" % (mean_score, scores.std() / 2, params))
 
     model = clf.best_estimator_

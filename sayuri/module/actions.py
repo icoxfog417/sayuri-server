@@ -6,6 +6,7 @@ from sayuri.module import recognizers
 from sayuri.module import model as mdl
 from sayuri.framework import Action
 from sayuri.machine import MachineLoader
+from statistics import mean
 
 
 class TimeManagementAction(Action):
@@ -130,14 +131,14 @@ class FaceAction(Action):
                 if "smile" in d:
                     smiles.append(d["smile"])
 
-            min_pitches = 0
-            max_smile = 0
+            pitch_min = 0
+            smile_avg = 0
             if len(pitches) > 0:
-                min_pitches = min(pitches)
+                pitch_min = min(pitches)
 
             if len(smiles) > 0:
-                max_smile = max(smiles)
+                smile_avg = mean(smiles)
 
-            return min_pitches, max_smile
+            return pitch_min, smile_avg
         else:
             return None
