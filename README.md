@@ -35,7 +35,7 @@ To read this document, you have to install below.
 
 You can use Heroku Button. 
 
-[![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy?template=https://github.com/icoxfog417/sayuri-server)
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 
 Sayuri uses Rekognition API, so you have to create account and set configuration variables. 
 
